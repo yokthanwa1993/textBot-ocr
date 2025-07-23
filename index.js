@@ -1,9 +1,5 @@
 // Google Cloud Vision API - OCR Service
 import vision from '@google-cloud/vision';
-import dotenv from 'dotenv';
-
-// โหลด environment variables
-dotenv.config();
 
 // ตั้งค่า Google Cloud Vision client
 let client;
