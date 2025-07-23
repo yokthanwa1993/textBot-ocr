@@ -38,7 +38,7 @@ const upload = multer({
 // Routes
 
 // ===== API v1 Routes (Simple Response) =====
-// API v1 Home
+// API v1 Home - รองรับทั้ง GET และ POST
 app.get('/api/v1/', (req, res) => {
   res.json({
     service: 'TEXTBot OCR API v1',
@@ -46,6 +46,7 @@ app.get('/api/v1/', (req, res) => {
     description: 'Simple OCR API - returns only text results',
     endpoints: {
       'GET /api/v1/': 'API v1 information',
+      'POST /api/v1/': 'Universal endpoint - accepts base64 image data',
       'POST /api/v1/ocr/url': 'Image from URL (returns: {"text":"..."})',
       'POST /api/v1/ocr/text': 'Upload image file (returns: {"text":"..."})',
       'POST /api/v1/ocr/base64': 'Base64 image (returns: {"text":"..."})',
@@ -54,6 +55,40 @@ app.get('/api/v1/', (req, res) => {
     status: 'running',
     timestamp: new Date().toISOString()
   });
+});
+
+// Universal endpoint - รองรับทุกอย่างในลิงก์เดียว
+app.post('/api/v1/', async (req, res) => {
+  try {
+    const { imageData, base64Image, imageUrl } = req.body;
+    
+    // ตรวจสอบว่ามีข้อมูลรูปภาพหรือไม่
+    if (!imageData && !base64Image && !imageUrl) {
+      return res.status(400).json({ text: "Error: Image data is required (imageData, base64Image, or imageUrl)" });
+    }
+
+    let result;
+    
+    // ตรวจสอบประเภทของข้อมูลและเรียกใช้ OCR service ที่เหมาะสม
+    if (imageUrl) {
+      console.log(`🌐 Processing image URL: ${imageUrl}`);
+      result = await OCRService.detectTextFromUrl(imageUrl);
+    } else if (imageData || base64Image) {
+      const base64Data = imageData || base64Image;
+      console.log(`🔢 Processing base64 image data (${base64Data.length} characters)`);
+      result = await OCRService.detectTextFromBase64(base64Data);
+    }
+    
+    if (result.success) {
+      // Return only the text
+      res.json({ text: result.text });
+    } else {
+      res.status(400).json({ text: "Error: " + result.message });
+    }
+  } catch (error) {
+    console.error('Error in universal /api/v1/ endpoint:', error);
+    res.status(500).json({ text: "Error: Failed to process image" });
+  }
 });
 
 app.post('/api/v1/ocr/url', async (req, res) => {
