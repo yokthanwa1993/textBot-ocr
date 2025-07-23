@@ -1,0 +1,14 @@
+# OCR Service - Docker ignore
+node_modules/
+npm-debug.log*
+.env
+.env.local
+*.log
+*.jpg
+*.png
+*.pdf
+test-images/
+google-credentials.json
+.git/
+.gitignore
+README.md

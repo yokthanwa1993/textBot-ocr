@@ -1,0 +1,21 @@
+# Google Cloud Credentials
+google-credentials.json
+*.json
+
+# Node modules
+node_modules/
+npm-debug.log*
+
+# Environment variables
+.env
+.env.local
+
+# Test images
+test-images/
+*.jpg
+*.png
+*.pdf
+
+# Logs
+logs/
+*.log
