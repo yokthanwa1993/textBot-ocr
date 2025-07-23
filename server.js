@@ -7,6 +7,12 @@ import { OCRService } from './index.js';
 const app = express();
 const PORT = 3001;
 
+// Debug environment variables
+console.log('🔍 Debug Environment Variables:');
+console.log('GOOGLE_CLOUD_API_KEY:', process.env.GOOGLE_CLOUD_API_KEY ? '✅ Found' : '❌ Missing');
+console.log('GOOGLE_CLOUD_PROJECT_ID:', process.env.GOOGLE_CLOUD_PROJECT_ID ? '✅ Found' : '❌ Missing');
+console.log('GOOGLE_APPLICATION_CREDENTIALS:', process.env.GOOGLE_APPLICATION_CREDENTIALS ? '✅ Found' : '❌ Missing');
+
 // Middleware
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
@@ -31,6 +37,102 @@ const upload = multer({
 
 // Routes
 
+// ===== API v1 Routes (Simple Response) =====
+// API v1 Home
+app.get('/api/v1/', (req, res) => {
+  res.json({
+    service: 'TEXTBot OCR API v1',
+    version: '1.0.0',
+    description: 'Simple OCR API - returns only text results',
+    endpoints: {
+      'GET /api/v1/': 'API v1 information',
+      'POST /api/v1/ocr/url': 'Image from URL (returns: {"text":"..."})',
+      'POST /api/v1/ocr/text': 'Upload image file (returns: {"text":"..."})',
+      'POST /api/v1/ocr/base64': 'Base64 image (returns: {"text":"..."})',
+      'GET /api/v1/health': 'Health check'
+    },
+    status: 'running',
+    timestamp: new Date().toISOString()
+  });
+});
+
+app.post('/api/v1/ocr/url', async (req, res) => {
+  try {
+    const { imageUrl } = req.body;
+    
+    if (!imageUrl) {
+      return res.status(400).json({ text: "Error: Image URL is required" });
+    }
+
+    console.log(`🌐 Processing image URL: ${imageUrl}`);
+    
+    const result = await OCRService.detectTextFromUrl(imageUrl);
+    
+    if (result.success) {
+      // Return only the text
+      res.json({ text: result.text });
+    } else {
+      res.status(400).json({ text: "Error: " + result.message });
+    }
+  } catch (error) {
+    console.error('Error in /api/v1/ocr/url:', error);
+    res.status(500).json({ text: "Error: Failed to process image" });
+  }
+});
+
+app.post('/api/v1/ocr/text', upload.single('image'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ text: "Error: No image file provided" });
+    }
+
+    console.log(`📷 Processing uploaded image: ${req.file.originalname}`);
+    
+    const result = await OCRService.detectText(req.file.buffer);
+    
+    if (result.success) {
+      // Return only the text
+      res.json({ text: result.text });
+    } else {
+      res.status(400).json({ text: "Error: " + result.message });
+    }
+  } catch (error) {
+    console.error('Error in /api/v1/ocr/text:', error);
+    res.status(500).json({ text: "Error: Failed to process image" });
+  }
+});
+
+app.post('/api/v1/ocr/base64', async (req, res) => {
+  try {
+    const { imageData } = req.body;
+    
+    if (!imageData) {
+      return res.status(400).json({ text: "Error: Base64 image data is required" });
+    }
+
+    console.log(`🔢 Processing base64 image data`);
+    
+    const result = await OCRService.detectTextFromBase64(imageData);
+    
+    if (result.success) {
+      // Return only the text
+      res.json({ text: result.text });
+    } else {
+      res.status(400).json({ text: "Error: " + result.message });
+    }
+  } catch (error) {
+    console.error('Error in /api/v1/ocr/base64:', error);
+    res.status(500).json({ text: "Error: Failed to process image" });
+  }
+});
+
+// API v1 Health check
+app.get('/api/v1/health', (req, res) => {
+  res.json({ text: "OCR API v1 is running" });
+});
+
+// ===== Original API Routes (Full Response) =====
+
 // 🏠 Home - API Info
 app.get('/', (req, res) => {
   res.json({
@@ -38,6 +140,12 @@ app.get('/', (req, res) => {
     version: '1.0.0',
     port: PORT,
     endpoints: {
+      // API v1 (Simple Response)
+      'POST /api/v1/ocr/text': 'Upload image file (returns: {"text":"..."})',
+      'POST /api/v1/ocr/url': 'Image from URL (returns: {"text":"..."})',
+      'POST /api/v1/ocr/base64': 'Base64 image (returns: {"text":"..."})',
+      'GET /api/v1/health': 'API v1 Health check',
+      // Original API (Full Response)
       'GET /': 'API information',
       'POST /ocr/text': 'Text detection from uploaded image',
       'POST /ocr/url': 'Text detection from image URL',
