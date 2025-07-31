@@ -66,7 +66,18 @@ app.get('/', async (req, res) => {
     try {
       console.log(`🌐 Processing image from URL parameter: ${url}`);
       
-      const result = await OCRService.detectTextFromUrl(url);
+      // ตรวจสอบ authorization header
+      const authHeader = req.headers.authorization;
+      const options = {};
+      
+      if (authHeader) {
+        options.headers = {
+          'Authorization': authHeader
+        };
+        console.log('🔐 Using authorization header for image download');
+      }
+      
+      const result = await OCRService.detectTextFromUrl(url, options);
       
       if (result.success) {
         // Return simple text response for URL parameter usage
@@ -112,19 +123,32 @@ app.get('/', async (req, res) => {
 // Universal endpoint - รองรับทุกอย่างในลิงก์เดียว
 app.post('/api/v1/', async (req, res) => {
   try {
-    const { imageData, base64Image, imageUrl } = req.body;
+    const { imageData, base64Image, imageUrl, url, authorization } = req.body;
+    const targetUrl = imageUrl || url;
     
     // ตรวจสอบว่ามีข้อมูลรูปภาพหรือไม่
-    if (!imageData && !base64Image && !imageUrl) {
-      return res.status(400).json({ text: "Error: Image data is required (imageData, base64Image, or imageUrl)" });
+    if (!imageData && !base64Image && !targetUrl) {
+      return res.status(400).json({ text: "Error: Image data is required (imageData, base64Image, url, or imageUrl)" });
     }
 
     let result;
     
     // ตรวจสอบประเภทของข้อมูลและเรียกใช้ OCR service ที่เหมาะสม
-    if (imageUrl) {
-      console.log(`🌐 Processing image URL: ${imageUrl}`);
-      result = await OCRService.detectTextFromUrl(imageUrl);
+    if (targetUrl) {
+      console.log(`🌐 Processing image URL: ${targetUrl}`);
+      
+      // ตั้งค่า authorization header ถ้ามี
+      const options = {};
+      const authHeader = authorization || req.headers.authorization;
+      
+      if (authHeader) {
+        options.headers = {
+          'Authorization': authHeader
+        };
+        console.log('🔐 Using authorization header for image download');
+      }
+      
+      result = await OCRService.detectTextFromUrl(targetUrl, options);
     } else if (imageData || base64Image) {
       const base64Data = imageData || base64Image;
       console.log(`🔢 Processing base64 image data (${base64Data.length} characters)`);
@@ -145,15 +169,27 @@ app.post('/api/v1/', async (req, res) => {
 
 app.post('/api/v1/ocr/url', async (req, res) => {
   try {
-    const { imageUrl } = req.body;
+    const { imageUrl, url, authorization } = req.body;
+    const targetUrl = imageUrl || url; // รองรับทั้ง imageUrl และ url
     
-    if (!imageUrl) {
-      return res.status(400).json({ text: "Error: Image URL is required" });
+    if (!targetUrl) {
+      return res.status(400).json({ text: "Error: Image URL is required (use 'url' or 'imageUrl' field)" });
     }
 
-    console.log(`🌐 Processing image URL: ${imageUrl}`);
+    console.log(`🌐 Processing image URL: ${targetUrl}`);
     
-    const result = await OCRService.detectTextFromUrl(imageUrl);
+    // ตั้งค่า authorization header ถ้ามี
+    const options = {};
+    const authHeader = authorization || req.headers.authorization;
+    
+    if (authHeader) {
+      options.headers = {
+        'Authorization': authHeader
+      };
+      console.log('🔐 Using authorization header for image download');
+    }
+    
+    const result = await OCRService.detectTextFromUrl(targetUrl, options);
     
     if (result.success) {
       // Return only the text
@@ -267,7 +303,7 @@ app.post('/ocr/text', upload.single('image'), async (req, res) => {
 // 🌐 OCR: Text Detection from URL
 app.post('/ocr/url', async (req, res) => {
   try {
-    const { imageUrl } = req.body;
+    const { imageUrl, authorization, headers } = req.body;
     
     if (!imageUrl) {
       return res.status(400).json({
@@ -279,12 +315,34 @@ app.post('/ocr/url', async (req, res) => {
 
     console.log('🌐 Processing image URL:', imageUrl);
     
-    const result = await OCRService.detectTextFromUrl(imageUrl);
+    // ตั้งค่า authorization header ถ้ามี
+    const options = {};
+    const authHeader = authorization || req.headers.authorization;
+    const customHeaders = headers || {};
+    
+    if (authHeader || Object.keys(customHeaders).length > 0) {
+      options.headers = {
+        ...customHeaders
+      };
+      
+      if (authHeader) {
+        options.headers['Authorization'] = authHeader;
+        console.log('🔐 Using authorization header for image download');
+      }
+      
+      if (Object.keys(customHeaders).length > 0) {
+        console.log('📋 Using custom headers:', Object.keys(customHeaders));
+      }
+    }
+    
+    const result = await OCRService.detectTextFromUrl(imageUrl, options);
     
     res.json({
       ...result,
       input: {
-        imageUrl: imageUrl
+        imageUrl: imageUrl,
+        hasAuthorization: !!authHeader,
+        hasCustomHeaders: Object.keys(customHeaders).length > 0
       },
       api: {
         endpoint: '/ocr/url',

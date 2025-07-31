@@ -125,21 +125,44 @@ export class OCRService {
   /**
    * อ่านข้อความจาก URL ของรูปภาพ
    * @param {string} imageUrl - URL ของรูปภาพ
+   * @param {Object} options - ตัวเลือกเพิ่มเติม เช่น headers
    * @returns {Promise<Object>} - ผลลัพธ์การอ่าน OCR
    */
-  static async detectTextFromUrl(imageUrl) {
+  static async detectTextFromUrl(imageUrl, options = {}) {
     try {
       console.log('Fetching image from URL:', imageUrl);
       
+      // ตั้งค่า headers สำหรับการดาวน์โหลด
+      const fetchOptions = {
+        method: 'GET',
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (compatible; OCR-Bot/1.0)',
+          ...options.headers
+        }
+      };
+
+      // แสดง headers ที่ใช้สำหรับ debug
+      if (options.headers) {
+        console.log('Using custom headers:', Object.keys(options.headers));
+      }
+      
       // ดาวน์โหลดรูปจาก URL
-      const response = await fetch(imageUrl);
+      const response = await fetch(imageUrl, fetchOptions);
       if (!response.ok) {
-        throw new Error(`Failed to fetch image: ${response.status}`);
+        throw new Error(`Failed to fetch image: ${response.status} ${response.statusText}`);
+      }
+      
+      // ตรวจสอบ Content-Type
+      const contentType = response.headers.get('content-type');
+      if (contentType && !contentType.startsWith('image/')) {
+        console.warn(`Warning: Content-Type is ${contentType}, not an image type`);
       }
       
       // แปลงเป็น Buffer
       const arrayBuffer = await response.arrayBuffer();
       const imageBuffer = Buffer.from(arrayBuffer);
+      
+      console.log(`Downloaded image: ${imageBuffer.length} bytes, Content-Type: ${contentType}`);
       
       // ส่งต่อไปยัง detectText
       return await this.detectText(imageBuffer);
