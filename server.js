@@ -57,6 +57,58 @@ app.get('/api/v1/', (req, res) => {
   });
 });
 
+// 🌐 OCR: รองรับ URL parameter - GET /?url=https://example.com/image.jpg
+app.get('/', async (req, res) => {
+  const { url } = req.query;
+  
+  // ถ้ามี URL parameter ให้ทำ OCR
+  if (url) {
+    try {
+      console.log(`🌐 Processing image from URL parameter: ${url}`);
+      
+      const result = await OCRService.detectTextFromUrl(url);
+      
+      if (result.success) {
+        // Return simple text response for URL parameter usage
+        res.json({ text: result.text });
+      } else {
+        res.status(400).json({ text: "Error: " + result.message });
+      }
+    } catch (error) {
+      console.error('Error processing URL parameter:', error);
+      res.status(500).json({ text: "Error: Failed to process image from URL" });
+    }
+    return;
+  }
+
+  // ถ้าไม่มี URL parameter ให้แสดง API info ปกติ
+  res.json({
+    service: 'TEXTBot OCR API',
+    version: '1.0.0',
+    port: PORT,
+    usage: {
+      'URL Parameter': 'GET /?url=https://example.com/image.jpg (returns: {"text":"..."})',
+      'Simple OCR': 'Just add ?url=IMAGE_URL to get OCR result'
+    },
+    endpoints: {
+      // API v1 (Simple Response)
+      'POST /api/v1/ocr/text': 'Upload image file (returns: {"text":"..."})',
+      'POST /api/v1/ocr/url': 'Image from URL (returns: {"text":"..."})',
+      'POST /api/v1/ocr/base64': 'Base64 image (returns: {"text":"..."})',
+      'GET /api/v1/health': 'API v1 Health check',
+      // Original API (Full Response)
+      'GET /': 'API information or OCR from URL parameter',
+      'POST /ocr/text': 'Text detection from uploaded image',
+      'POST /ocr/url': 'Text detection from image URL',
+      'POST /ocr/base64': 'Text detection from base64 image',
+      'POST /ocr/document': 'Document text detection from uploaded image',
+      'GET /health': 'Health check'
+    },
+    status: 'running',
+    timestamp: new Date().toISOString()
+  });
+});
+
 // Universal endpoint - รองรับทุกอย่างในลิงก์เดียว
 app.post('/api/v1/', async (req, res) => {
   try {
@@ -167,31 +219,6 @@ app.get('/api/v1/health', (req, res) => {
 });
 
 // ===== Original API Routes (Full Response) =====
-
-// 🏠 Home - API Info
-app.get('/', (req, res) => {
-  res.json({
-    service: 'TEXTBot OCR API',
-    version: '1.0.0',
-    port: PORT,
-    endpoints: {
-      // API v1 (Simple Response)
-      'POST /api/v1/ocr/text': 'Upload image file (returns: {"text":"..."})',
-      'POST /api/v1/ocr/url': 'Image from URL (returns: {"text":"..."})',
-      'POST /api/v1/ocr/base64': 'Base64 image (returns: {"text":"..."})',
-      'GET /api/v1/health': 'API v1 Health check',
-      // Original API (Full Response)
-      'GET /': 'API information',
-      'POST /ocr/text': 'Text detection from uploaded image',
-      'POST /ocr/url': 'Text detection from image URL',
-      'POST /ocr/base64': 'Text detection from base64 image',
-      'POST /ocr/document': 'Document text detection from uploaded image',
-      'GET /health': 'Health check'
-    },
-    status: 'running',
-    timestamp: new Date().toISOString()
-  });
-});
 
 // 🔍 OCR: Text Detection from uploaded file
 app.post('/ocr/text', upload.single('image'), async (req, res) => {
