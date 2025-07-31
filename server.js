@@ -37,6 +37,62 @@ const upload = multer({
 
 // Routes
 
+// ===== API Routes =====
+// 🌐 OCR: รองรับ URL parameter - GET /api/?url=https://example.com/image.jpg
+app.get('/api/', async (req, res) => {
+  const { url } = req.query;
+  
+  // ถ้ามี URL parameter ให้ทำ OCR
+  if (url) {
+    try {
+      console.log(`🌐 Processing image from /api/ URL parameter: ${url}`);
+      
+      // ตรวจสอบ authorization header
+      const authHeader = req.headers.authorization;
+      const options = {};
+      
+      if (authHeader) {
+        options.headers = {
+          'Authorization': authHeader
+        };
+        console.log('🔐 Using authorization header for /api/ image download');
+      }
+      
+      const result = await OCRService.detectTextFromUrl(url, options);
+      
+      if (result.success) {
+        // Return simple text response for URL parameter usage
+        res.json({ text: result.text });
+      } else {
+        res.status(400).json({ text: "Error: " + result.message });
+      }
+    } catch (error) {
+      console.error('Error processing /api/ URL parameter:', error);
+      res.status(500).json({ text: "Error: Failed to process image from URL" });
+    }
+    return;
+  }
+
+  // ถ้าไม่มี URL parameter ให้แสดง API info
+  res.json({
+    service: 'TEXTBot OCR API',
+    version: '1.0.0',
+    port: PORT,
+    usage: {
+      'URL Parameter': 'GET /api/?url=https://example.com/image.jpg (returns: {"text":"..."})',
+      'Simple OCR': 'Just add ?url=IMAGE_URL to get OCR result with authorization header support'
+    },
+    endpoints: {
+      'GET /api/': 'API information or OCR from URL parameter',
+      'POST /api/ocr/url': 'Image from URL with authorization support',
+      'GET /': 'Main API information',
+      'POST /ocr/url': 'Original OCR endpoint'
+    },
+    status: 'running',
+    timestamp: new Date().toISOString()
+  });
+});
+
 // ===== API v1 Routes (Simple Response) =====
 // API v1 Home - รองรับทั้ง GET และ POST
 app.get('/api/v1/', (req, res) => {
@@ -252,6 +308,53 @@ app.post('/api/v1/ocr/base64', async (req, res) => {
 // API v1 Health check
 app.get('/api/v1/health', (req, res) => {
   res.json({ text: "OCR API v1 is running" });
+});
+
+// ===== API Routes (Simple Response) =====
+// 🌐 OCR: Text Detection from URL - Simple API
+app.post('/api/ocr/url', async (req, res) => {
+  try {
+    const { imageUrl, url, authorization, headers } = req.body;
+    const targetUrl = imageUrl || url;
+    
+    if (!targetUrl) {
+      return res.status(400).json({ text: "Error: Image URL is required (use 'url' or 'imageUrl' field)" });
+    }
+
+    console.log(`🌐 Processing image URL via /api/ocr/url: ${targetUrl}`);
+    
+    // ตั้งค่า authorization header ถ้ามี
+    const options = {};
+    const authHeader = authorization || req.headers.authorization;
+    const customHeaders = headers || {};
+    
+    if (authHeader || Object.keys(customHeaders).length > 0) {
+      options.headers = {
+        ...customHeaders
+      };
+      
+      if (authHeader) {
+        options.headers['Authorization'] = authHeader;
+        console.log('🔐 Using authorization header for /api/ocr/url image download');
+      }
+      
+      if (Object.keys(customHeaders).length > 0) {
+        console.log('📋 Using custom headers for /api/ocr/url:', Object.keys(customHeaders));
+      }
+    }
+    
+    const result = await OCRService.detectTextFromUrl(targetUrl, options);
+    
+    if (result.success) {
+      // Return simple text response
+      res.json({ text: result.text });
+    } else {
+      res.status(400).json({ text: "Error: " + result.message });
+    }
+  } catch (error) {
+    console.error('Error in /api/ocr/url:', error);
+    res.status(500).json({ text: "Error: Failed to process image" });
+  }
 });
 
 // ===== Original API Routes (Full Response) =====
